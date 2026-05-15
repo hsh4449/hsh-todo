@@ -1,0 +1,7 @@
+# hsh-dashboard
+# hooks/ : 로컬 PC에서만 동작하는 Claude Code Stop hook 스크립트 (anon key 포함 — repo에 올리지 않음)
+hooks/
+*.log
+.vscode/
+.DS_Store
+Thumbs.db
