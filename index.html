@@ -3,140 +3,70 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>hsh · 프로젝트 대시보드</title>
+<title>hsh · GitHub 대시보드</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<script>
-  tailwind.config = { darkMode: 'class' };
-</script>
 <style>
   body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
-  .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
-  .scrollbar-thin::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 3px; }
-  .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
-  details > summary { list-style: none; cursor: pointer; }
-  details > summary::-webkit-details-marker { display: none; }
 </style>
 </head>
 <body class="bg-zinc-950 text-zinc-100 min-h-screen">
 
-<div class="flex min-h-screen">
-  <!-- Sidebar -->
-  <aside class="w-64 border-r border-zinc-800 flex flex-col">
-    <div class="px-5 py-4 border-b border-zinc-800">
-      <div class="text-xs text-zinc-500">hsh · 작업 대시보드</div>
-      <div class="text-lg font-semibold mt-1">프로젝트</div>
+<header class="border-b border-zinc-800 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">
+  <div class="max-w-7xl mx-auto px-6 py-4 flex items-center gap-3">
+    <div class="flex-1 min-w-0">
+      <div class="text-xs text-zinc-500">hsh · GitHub 대시보드</div>
+      <h1 class="text-xl font-semibold">레포지토리</h1>
     </div>
-    <nav id="tab-nav" class="flex-1 overflow-y-auto scrollbar-thin p-2 space-y-1">
-      <!-- tabs injected here -->
-    </nav>
-    <div class="p-3 border-t border-zinc-800 text-xs text-zinc-500">
-      <button id="refresh-btn" class="w-full px-2 py-1.5 rounded hover:bg-zinc-800 text-left">↻ 새로고침</button>
-      <div id="last-sync" class="px-2 pt-1.5 text-zinc-600"></div>
-    </div>
-  </aside>
+    <div id="status" class="text-xs text-zinc-500 mr-2 truncate"></div>
+    <label class="flex items-center gap-1.5 text-xs text-zinc-400 cursor-pointer select-none">
+      <input id="show-archived" type="checkbox" class="accent-indigo-500"> archived/hidden 포함
+    </label>
+    <button id="sync-btn" class="px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-500 text-sm font-medium">↻ 동기화</button>
+    <button id="tokens-btn" class="px-3 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-sm">🔑 토큰</button>
+  </div>
+</header>
 
-  <!-- Main -->
-  <main class="flex-1 min-w-0">
-    <header class="border-b border-zinc-800 px-8 py-5 flex items-center justify-between sticky top-0 bg-zinc-950/80 backdrop-blur z-10">
-      <div>
-        <h1 id="page-title" class="text-2xl font-bold tracking-tight">메인</h1>
-        <p id="page-subtitle" class="text-sm text-zinc-500 mt-0.5"></p>
-      </div>
-      <div class="flex gap-2">
-        <button id="add-activity-btn" class="px-3 py-2 rounded bg-indigo-600 hover:bg-indigo-500 text-sm font-medium">+ 작업 기록</button>
-        <button id="add-idea-btn" class="px-3 py-2 rounded bg-zinc-800 hover:bg-zinc-700 text-sm font-medium">+ 구상</button>
-      </div>
-    </header>
-    <div id="view" class="p-8 max-w-6xl"></div>
-  </main>
-</div>
+<main id="view" class="max-w-7xl mx-auto px-6 py-6">
+  <p class="text-sm text-zinc-500">로딩 중...</p>
+</main>
 
-<!-- Modal: Add Activity -->
-<div id="modal-activity" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+<!-- Modal: Tokens -->
+<div id="modal-tokens" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
   <div class="bg-zinc-900 border border-zinc-800 rounded-lg w-full max-w-lg p-6">
-    <h3 class="text-lg font-semibold mb-4">작업 기록 추가</h3>
-    <form id="form-activity" class="space-y-3">
+    <h3 class="text-lg font-semibold mb-1">API 토큰 설정</h3>
+    <p class="text-xs text-zinc-500 mb-4">Supabase <code>dashboard_secrets</code>에 저장. anon 키 노출 시 토큰도 노출되니 hsh-todo 레포는 public이어도 토큰값만 별도 관리.</p>
+    <form id="form-tokens" class="space-y-3">
       <div>
-        <label class="text-xs text-zinc-400">프로젝트</label>
-        <select id="act-project" class="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 mt-1"></select>
-      </div>
-      <div class="grid grid-cols-2 gap-3">
-        <div>
-          <label class="text-xs text-zinc-400">종류</label>
-          <select id="act-kind" class="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 mt-1">
-            <option value="work">work · 작업</option>
-            <option value="feature">feature · 기능</option>
-            <option value="bugfix">bugfix · 버그수정</option>
-            <option value="commit">commit · 커밋</option>
-            <option value="deploy">deploy · 배포</option>
-            <option value="decision">decision · 결정</option>
-            <option value="note">note · 메모</option>
-            <option value="meeting">meeting · 미팅</option>
-          </select>
-        </div>
-        <div>
-          <label class="text-xs text-zinc-400">발생 시각</label>
-          <input id="act-occurred" type="datetime-local" class="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 mt-1"/>
-        </div>
+        <label class="text-xs text-zinc-400 flex justify-between">
+          <span>GitHub PAT <span class="text-zinc-600">(scope: repo, read:user)</span></span>
+          <a href="https://github.com/settings/tokens/new?scopes=repo,read:user&description=hsh-todo-dashboard" target="_blank" class="text-indigo-400 hover:underline">발급 →</a>
+        </label>
+        <input id="tk-gh" type="password" autocomplete="off" placeholder="ghp_..." class="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 mt-1 font-mono text-sm"/>
       </div>
       <div>
-        <label class="text-xs text-zinc-400">제목</label>
-        <input id="act-title" required class="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 mt-1" placeholder="한 줄 요약"/>
-      </div>
-      <div>
-        <label class="text-xs text-zinc-400">상세</label>
-        <textarea id="act-detail" rows="4" class="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 mt-1" placeholder="자세한 내용 (옵션)"></textarea>
+        <label class="text-xs text-zinc-400 flex justify-between">
+          <span>Netlify PAT</span>
+          <a href="https://app.netlify.com/user/applications#personal-access-tokens" target="_blank" class="text-indigo-400 hover:underline">발급 →</a>
+        </label>
+        <input id="tk-nl" type="password" autocomplete="off" placeholder="nfp_..." class="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 mt-1 font-mono text-sm"/>
       </div>
       <div class="flex justify-end gap-2 pt-2">
-        <button type="button" class="modal-close px-4 py-2 rounded bg-zinc-800 hover:bg-zinc-700 text-sm">취소</button>
+        <button type="button" id="tokens-cancel" class="px-4 py-2 rounded bg-zinc-800 hover:bg-zinc-700 text-sm">취소</button>
         <button type="submit" class="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-500 text-sm font-medium">저장</button>
       </div>
     </form>
   </div>
 </div>
 
-<!-- Modal: Add Idea -->
-<div id="modal-idea" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+<!-- Modal: Note -->
+<div id="modal-note" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
   <div class="bg-zinc-900 border border-zinc-800 rounded-lg w-full max-w-lg p-6">
-    <h3 class="text-lg font-semibold mb-4">구상 추가</h3>
-    <form id="form-idea" class="space-y-3">
-      <div>
-        <label class="text-xs text-zinc-400">프로젝트</label>
-        <select id="idea-project" class="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 mt-1"></select>
-      </div>
-      <div class="grid grid-cols-2 gap-3">
-        <div>
-          <label class="text-xs text-zinc-400">상태</label>
-          <select id="idea-status" class="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 mt-1">
-            <option value="todo">하려고 하는 일</option>
-            <option value="doing">해야 하는 일</option>
-            <option value="done">진행된 일</option>
-            <option value="parked">보류</option>
-          </select>
-        </div>
-        <div>
-          <label class="text-xs text-zinc-400">우선순위</label>
-          <select id="idea-priority" class="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 mt-1">
-            <option value="high">high · 높음</option>
-            <option value="med" selected>med · 보통</option>
-            <option value="low">low · 낮음</option>
-          </select>
-        </div>
-      </div>
-      <div>
-        <label class="text-xs text-zinc-400">제목</label>
-        <input id="idea-title" required class="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 mt-1"/>
-      </div>
-      <div>
-        <label class="text-xs text-zinc-400">내용</label>
-        <textarea id="idea-content" rows="4" class="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 mt-1"></textarea>
-      </div>
-      <div>
-        <label class="text-xs text-zinc-400">태그 (콤마 구분)</label>
-        <input id="idea-tags" class="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 mt-1" placeholder="예: ui, api, refactor"/>
-      </div>
-      <div class="flex justify-end gap-2 pt-2">
-        <button type="button" class="modal-close px-4 py-2 rounded bg-zinc-800 hover:bg-zinc-700 text-sm">취소</button>
+    <h3 class="text-lg font-semibold mb-1">메모</h3>
+    <p id="note-repo" class="text-xs text-zinc-500 mb-3"></p>
+    <form id="form-note" class="space-y-3">
+      <textarea id="note-text" rows="6" class="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm" placeholder="레포에 대한 메모 (배포 URL 메모, 작업 컨텍스트 등)"></textarea>
+      <div class="flex justify-end gap-2">
+        <button type="button" id="note-cancel" class="px-4 py-2 rounded bg-zinc-800 hover:bg-zinc-700 text-sm">취소</button>
         <button type="submit" class="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-500 text-sm font-medium">저장</button>
       </div>
     </form>
@@ -146,475 +76,391 @@
 <script type="module">
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-// ---- Config ----
 const SUPABASE_URL = 'https://iqyfzzaavqwxpahamenl.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_JJKK9Rx4J_sorue03cA3UQ_xiDQtRWC';
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// IMPORTANT: 이 클라이언트는 dashboard_* 테이블에만 접근합니다.
-// 같은 프로젝트의 stock_* 테이블은 SELECT조차 하지 않습니다 (사용자 정책).
-
-// ---- State ----
 const state = {
-  currentTab: 'main',
-  projects: [],
-  activities: [],
-  ideas: [],
+  repos: [],
+  tokens: { github_pat: '', netlify_pat: '' },
+  showArchived: false,
+  noteRepoId: null,
 };
 
-// ---- Helpers ----
-const $ = sel => document.querySelector(sel);
-const $$ = sel => Array.from(document.querySelectorAll(sel));
-const escapeHtml = s => (s == null ? '' : String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
+const $ = s => document.querySelector(s);
+const esc = s => (s == null ? '' : String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
+const setStatus = t => { $('#status').textContent = t || ''; };
 const fmtTime = ts => {
-  const d = new Date(ts);
-  const now = new Date();
-  const diff = (now - d) / 1000;
+  if (!ts) return '';
+  const d = new Date(ts), now = new Date(), diff = (now - d) / 1000;
   if (diff < 60) return '방금';
   if (diff < 3600) return `${Math.floor(diff/60)}분 전`;
   if (diff < 86400) return `${Math.floor(diff/3600)}시간 전`;
   if (diff < 604800) return `${Math.floor(diff/86400)}일 전`;
   return d.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
 };
-const fmtFull = ts => new Date(ts).toLocaleString('ko-KR');
-const localDatetimeNow = () => {
-  const d = new Date();
-  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-  return d.toISOString().slice(0, 16);
-};
-const kindBadge = k => {
-  const map = {
-    work:'bg-zinc-700', feature:'bg-emerald-700', bugfix:'bg-rose-700',
-    commit:'bg-indigo-700', deploy:'bg-cyan-700', decision:'bg-amber-700',
-    note:'bg-zinc-600', meeting:'bg-purple-700'
-  };
-  return `<span class="text-[10px] px-1.5 py-0.5 rounded ${map[k]||'bg-zinc-700'} text-zinc-100 uppercase">${k}</span>`;
-};
-const sourceBadge = s => {
-  if (s === 'claude') return '<span class="text-[10px] px-1.5 py-0.5 rounded bg-violet-900/60 text-violet-200">Claude</span>';
-  if (s === 'git')    return '<span class="text-[10px] px-1.5 py-0.5 rounded bg-orange-900/60 text-orange-200">git</span>';
-  if (s === 'hook')   return '<span class="text-[10px] px-1.5 py-0.5 rounded bg-pink-900/60 text-pink-200">hook</span>';
-  return '';
-};
-const priorityBadge = p => {
-  const map = { high:'bg-rose-600', med:'bg-amber-600', low:'bg-zinc-600' };
-  return `<span class="text-[10px] px-1.5 py-0.5 rounded ${map[p]} text-white">${p}</span>`;
-};
-const STATUS_LABEL = { todo:'하려고 하는 일', doing:'해야 하는 일', done:'진행된 일', parked:'보류' };
-const statusBadge = s => {
-  const map = { todo:'bg-zinc-700 text-zinc-300', doing:'bg-blue-700 text-blue-100', done:'bg-emerald-800 text-emerald-200', parked:'bg-zinc-800 text-zinc-500' };
-  return `<span class="text-[10px] px-1.5 py-0.5 rounded ${map[s]}">${STATUS_LABEL[s]||s}</span>`;
-};
+const fmtFull = ts => ts ? new Date(ts).toLocaleString('ko-KR') : '';
 
-// ---- Data layer (dashboard_* tables only) ----
-async function loadAll() {
-  const [p, a, i] = await Promise.all([
-    sb.from('dashboard_projects').select('*').order('sort_order'),
-    sb.from('dashboard_activities').select('*').order('occurred_at', { ascending: false }).limit(500),
-    sb.from('dashboard_ideas').select('*').order('priority').order('updated_at', { ascending: false }),
-  ]);
-  if (p.error || a.error || i.error) {
-    alert('데이터 로드 실패: ' + (p.error?.message || a.error?.message || i.error?.message));
+// ---- Tokens ----
+async function loadTokens() {
+  const { data, error } = await sb.from('dashboard_secrets').select('*');
+  if (error) { console.error(error); return; }
+  state.tokens = { github_pat: '', netlify_pat: '' };
+  (data || []).forEach(r => { state.tokens[r.key] = r.value; });
+}
+async function saveTokens(gh, nl) {
+  const rows = [];
+  if (gh) rows.push({ key: 'github_pat', value: gh, updated_at: new Date().toISOString() });
+  if (nl) rows.push({ key: 'netlify_pat', value: nl, updated_at: new Date().toISOString() });
+  if (!rows.length) return;
+  const { error } = await sb.from('dashboard_secrets').upsert(rows, { onConflict: 'key' });
+  if (error) { alert('토큰 저장 실패: ' + error.message); return false; }
+  await loadTokens();
+  return true;
+}
+
+// ---- Repos cache ----
+async function loadRepos() {
+  const { data, error } = await sb.from('gh_repos').select('*')
+    .order('pinned', { ascending: false })
+    .order('pushed_at', { ascending: false, nullsFirst: false });
+  if (error) { alert('레포 로드 실패: ' + error.message); return; }
+  state.repos = data || [];
+}
+
+// ---- GitHub API ----
+async function gh(path, token) {
+  const r = await fetch(`https://api.github.com${path}`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Accept': 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+    },
+  });
+  if (!r.ok) throw new Error(`GitHub ${path}: ${r.status} ${r.statusText}`);
+  return r.json();
+}
+
+async function fetchAllGhRepos(token) {
+  // affiliation=owner: 본인 소유 레포만 (collaborator 레포 제외)
+  let page = 1, all = [];
+  while (page < 10) {
+    const items = await gh(`/user/repos?per_page=100&affiliation=owner&sort=pushed&page=${page}`, token);
+    if (!items.length) break;
+    all = all.concat(items);
+    if (items.length < 100) break;
+    page++;
+  }
+  return all;
+}
+
+async function fetchLatestCommit(fullName, branch, token) {
+  try {
+    const items = await gh(`/repos/${fullName}/commits?per_page=1&sha=${encodeURIComponent(branch)}`, token);
+    if (!items.length) return null;
+    const c = items[0];
+    return {
+      sha: c.sha,
+      message: (c.commit?.message || '').split('\n')[0].slice(0, 200),
+      at: c.commit?.author?.date || c.commit?.committer?.date,
+      author: c.commit?.author?.name || c.author?.login || '',
+    };
+  } catch (e) {
+    console.warn('commit fetch fail', fullName, e.message);
+    return null;
+  }
+}
+
+async function fetchOpenPrCount(fullName, token) {
+  try {
+    const items = await gh(`/repos/${fullName}/pulls?state=open&per_page=100`, token);
+    return items.length;
+  } catch (e) {
+    return 0;
+  }
+}
+
+// ---- Netlify API ----
+async function fetchNetlifySites(token) {
+  const r = await fetch('https://api.netlify.com/api/v1/sites?per_page=100', {
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+  if (!r.ok) throw new Error(`Netlify: ${r.status} ${r.statusText}`);
+  return r.json();
+}
+
+function matchNetlifyByRepo(sites, fullName) {
+  // Netlify site.build_settings.repo_url 또는 repo 객체에 GitHub URL
+  const target = fullName.toLowerCase();
+  return sites.find(s => {
+    const url = (s.build_settings?.repo_url || '').toLowerCase();
+    return url.endsWith(`/${target}`) || url.endsWith(`/${target}.git`);
+  });
+}
+
+// ---- Sync ----
+async function sync() {
+  const { github_pat, netlify_pat } = state.tokens;
+  if (!github_pat) {
+    alert('GitHub 토큰이 없습니다. 🔑 토큰 버튼으로 입력하세요.');
+    openTokens();
     return;
   }
-  state.projects = p.data || [];
-  state.activities = a.data || [];
-  state.ideas = i.data || [];
-  $('#last-sync').textContent = '동기화: ' + new Date().toLocaleTimeString('ko-KR');
-}
+  $('#sync-btn').disabled = true;
+  try {
+    setStatus('GitHub 레포 목록 가져오는 중...');
+    const ghRepos = await fetchAllGhRepos(github_pat);
 
-async function insertActivity(payload) {
-  const { error } = await sb.from('dashboard_activities').insert(payload);
-  if (error) { alert('저장 실패: ' + error.message); return false; }
-  return true;
-}
-async function insertIdea(payload) {
-  const { error } = await sb.from('dashboard_ideas').insert(payload);
-  if (error) { alert('저장 실패: ' + error.message); return false; }
-  return true;
-}
-async function updateIdeaStatus(id, status) {
-  const patch = { status };
-  if (status === 'done') patch.done_at = new Date().toISOString();
-  const { error } = await sb.from('dashboard_ideas').update(patch).eq('id', id);
-  if (error) alert('업데이트 실패: ' + error.message);
-}
-async function moveIdeaToProject(id, projectId) {
-  // 메인 inbox(project_id=null)에서 특정 프로젝트로, 또는 다른 프로젝트로 이동
-  const { error } = await sb.from('dashboard_ideas').update({ project_id: projectId || null }).eq('id', id);
-  if (error) { alert('이동 실패: ' + error.message); return; }
-  await loadAll(); renderTabs(); render();
-}
-async function quickAddInboxNote(text) {
-  // 메인 시트 빠른 메모 — 첫 줄을 title, 나머지를 content로
-  const lines = text.split(/\r?\n/);
-  const title = (lines.shift() || '').trim();
-  const content = lines.join('\n').trim() || null;
-  if (!title) return false;
-  return await insertIdea({ project_id: null, title, content, status: 'todo', priority: 'med', tags: [] });
-}
-async function deleteActivity(id) {
-  if (!confirm('이 작업기록을 삭제할까요?')) return;
-  const { error } = await sb.from('dashboard_activities').delete().eq('id', id);
-  if (error) return alert(error.message);
-  await loadAll(); render();
-}
-async function deleteIdea(id) {
-  if (!confirm('이 구상을 삭제할까요?')) return;
-  const { error } = await sb.from('dashboard_ideas').delete().eq('id', id);
-  if (error) return alert(error.message);
-  await loadAll(); render();
-}
+    setStatus(`최근 커밋/PR 가져오는 중... (${ghRepos.length}개)`);
+    const enriched = await Promise.all(ghRepos.map(async r => {
+      const [commit, prCount] = await Promise.all([
+        fetchLatestCommit(r.full_name, r.default_branch || 'main', github_pat),
+        fetchOpenPrCount(r.full_name, github_pat),
+      ]);
+      return { r, commit, prCount };
+    }));
 
-window.__dash = { updateIdeaStatus, deleteActivity, deleteIdea, switchTab, moveIdeaToProject, quickAddInboxNote };
-
-// ---- Tabs ----
-function renderTabs() {
-  const nav = $('#tab-nav');
-  const items = [
-    { slug: 'main', name: '📋 메인', color: '#a1a1aa', projectId: null },
-    ...state.projects.map(p => ({ slug: p.slug, name: p.name, color: p.color, projectId: p.id })),
-  ];
-  nav.innerHTML = items.map(it => {
-    const active = it.slug === state.currentTab;
-    return `
-      <button data-slug="${it.slug}" data-project-id="${it.projectId || ''}"
-        class="tab-btn w-full text-left px-3 py-2 rounded text-sm flex items-center gap-2 transition-colors ${active ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'}">
-        <span class="w-2 h-2 rounded-full" style="background:${it.color}"></span>
-        <span class="truncate">${escapeHtml(it.name)}</span>
-      </button>
-    `;
-  }).join('');
-  // 클릭 & 드롭 대상 등록
-  nav.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => switchTab(btn.dataset.slug));
-    btn.addEventListener('dragover', e => {
-      if (e.dataTransfer.types.includes('application/x-idea-id')) {
-        e.preventDefault();
-        btn.classList.add('ring-2','ring-indigo-500');
+    let netlifySites = [];
+    if (netlify_pat) {
+      try {
+        setStatus('Netlify 사이트 매칭 중...');
+        netlifySites = await fetchNetlifySites(netlify_pat);
+      } catch (e) {
+        console.warn(e);
+        setStatus('Netlify 호출 실패 — 토큰 확인 필요');
       }
+    }
+
+    const existing = Object.fromEntries(state.repos.map(r => [r.id, r]));
+    const rows = enriched.map(({ r, commit, prCount }) => {
+      const nl = netlify_pat ? matchNetlifyByRepo(netlifySites, r.full_name) : null;
+      const prev = existing[r.id] || {};
+      return {
+        id: r.id,
+        name: r.name,
+        full_name: r.full_name,
+        description: r.description,
+        html_url: r.html_url,
+        default_branch: r.default_branch,
+        private: r.private,
+        archived: r.archived,
+        fork: r.fork,
+        language: r.language,
+        pushed_at: r.pushed_at,
+        open_issues_count: r.open_issues_count,
+        open_pr_count: prCount,
+        last_commit_sha: commit?.sha || null,
+        last_commit_message: commit?.message || null,
+        last_commit_at: commit?.at || null,
+        last_commit_author: commit?.author || null,
+        netlify_site_id: nl?.id || null,
+        netlify_site_name: nl?.name || null,
+        netlify_url: nl?.ssl_url || nl?.url || null,
+        netlify_state: nl?.published_deploy?.state || nl?.state || null,
+        netlify_deploy_at: nl?.published_deploy?.published_at || nl?.published_deploy?.created_at || null,
+        netlify_deploy_url: nl?.published_deploy?.deploy_ssl_url || nl?.published_deploy?.deploy_url || null,
+        // user-managed flags 유지
+        pinned: prev.pinned || false,
+        hidden: prev.hidden || false,
+        note: prev.note || null,
+        synced_at: new Date().toISOString(),
+      };
     });
-    btn.addEventListener('dragleave', () => btn.classList.remove('ring-2','ring-indigo-500'));
-    btn.addEventListener('drop', async e => {
-      e.preventDefault();
-      btn.classList.remove('ring-2','ring-indigo-500');
-      const id = e.dataTransfer.getData('application/x-idea-id');
-      if (!id) return;
-      await moveIdeaToProject(id, btn.dataset.projectId || null);
-    });
-  });
+
+    setStatus('DB 저장 중...');
+    const { error } = await sb.from('gh_repos').upsert(rows, { onConflict: 'id' });
+    if (error) throw new Error('DB upsert: ' + error.message);
+
+    // GitHub에서 사라진 레포는 DB에서도 제거 (id 비교)
+    const liveIds = new Set(rows.map(r => r.id));
+    const stale = state.repos.filter(r => !liveIds.has(r.id)).map(r => r.id);
+    if (stale.length) {
+      await sb.from('gh_repos').delete().in('id', stale);
+    }
+
+    await loadRepos();
+    render();
+    setStatus(`동기화 완료 · ${rows.length}개 · ${new Date().toLocaleTimeString('ko-KR')}`);
+  } catch (e) {
+    console.error(e);
+    alert('동기화 실패: ' + e.message);
+    setStatus('동기화 실패');
+  } finally {
+    $('#sync-btn').disabled = false;
+  }
 }
 
-function switchTab(slug) {
-  state.currentTab = slug;
-  renderTabs();
-  render();
+// ---- Actions ----
+async function togglePin(id) {
+  const r = state.repos.find(x => x.id == id);
+  if (!r) return;
+  await sb.from('gh_repos').update({ pinned: !r.pinned }).eq('id', id);
+  await loadRepos(); render();
+}
+async function toggleHide(id) {
+  const r = state.repos.find(x => x.id == id);
+  if (!r) return;
+  await sb.from('gh_repos').update({ hidden: !r.hidden }).eq('id', id);
+  await loadRepos(); render();
+}
+async function saveNote(id, text) {
+  await sb.from('gh_repos').update({ note: text || null }).eq('id', id);
+  await loadRepos(); render();
+}
+window.__d = { togglePin, toggleHide, openNote };
+
+function openNote(id) {
+  const r = state.repos.find(x => x.id == id);
+  if (!r) return;
+  state.noteRepoId = id;
+  $('#note-repo').textContent = r.full_name;
+  $('#note-text').value = r.note || '';
+  $('#modal-note').classList.remove('hidden');
 }
 
-// ---- Views ----
-function render() {
-  if (state.currentTab === 'main') return renderMain();
-  const proj = state.projects.find(p => p.slug === state.currentTab);
-  if (!proj) return renderMain();
-  return renderProject(proj);
+// ---- Render ----
+function netlifyBadge(s) {
+  if (!s) return '';
+  const map = {
+    ready: 'bg-emerald-700 text-emerald-100',
+    building: 'bg-amber-700 text-amber-100',
+    error: 'bg-rose-700 text-rose-100',
+    enqueued: 'bg-amber-700 text-amber-100',
+    processing: 'bg-amber-700 text-amber-100',
+    new: 'bg-zinc-700 text-zinc-200',
+  };
+  return `<span class="text-[10px] px-1.5 py-0.5 rounded ${map[s]||'bg-zinc-700'}">${esc(s)}</span>`;
 }
 
-function renderMain() {
-  $('#page-title').textContent = '메인 시트';
-  $('#page-subtitle').textContent = `${state.projects.length}개 프로젝트 · 활동 ${state.activities.length}건 · 구상 ${state.ideas.filter(i=>i.status!=='done').length}건 진행중`;
-
-  const recent = state.activities.slice(0, 10);
-  const inbox = state.ideas.filter(i => !i.project_id && i.status !== 'done' && i.status !== 'parked');
-  const hotIdeas = state.ideas.filter(i => i.status !== 'done' && i.status !== 'parked')
-    .sort((a,b) => ({high:0,med:1,low:2}[a.priority] - {high:0,med:1,low:2}[b.priority])).slice(0, 8);
-
-  $('#view').innerHTML = `
-    <!-- Quick inbox -->
-    <section class="mb-10">
-      <h2 class="text-sm font-semibold text-zinc-400 mb-3">📥 빠른 메모 <span class="text-zinc-600 font-normal text-xs ml-2">두서없이 적고 → 사이드바 프로젝트로 드래그</span></h2>
-      <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-3 mb-3">
-        <textarea id="quick-note" rows="2" placeholder="첫 줄은 제목, 다음 줄부터는 내용. Ctrl+Enter 저장."
-          class="w-full bg-transparent text-sm outline-none resize-none placeholder:text-zinc-600"></textarea>
-        <div class="flex justify-between items-center mt-1">
-          <div class="text-[11px] text-zinc-600">Ctrl + Enter</div>
-          <button id="quick-note-save" class="px-3 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-xs">저장</button>
-        </div>
-      </div>
-      ${inbox.length === 0
-        ? '<p class="text-xs text-zinc-600">받은 메모 없음.</p>'
-        : `<div id="inbox-list" class="flex flex-wrap gap-2">
-            ${inbox.map(i => `
-              <div draggable="true" data-id="${i.id}" class="inbox-chip group cursor-grab active:cursor-grabbing bg-zinc-900 border border-zinc-800 hover:border-indigo-500 rounded px-3 py-2 text-sm max-w-md">
-                <div class="flex items-start gap-2">
-                  <span class="text-zinc-600 text-xs mt-0.5">⠿</span>
-                  <div class="flex-1 min-w-0">
-                    <div class="font-medium truncate">${escapeHtml(i.title)}</div>
-                    ${i.content ? `<div class="text-xs text-zinc-500 line-clamp-2 mt-0.5 whitespace-pre-wrap">${escapeHtml(i.content)}</div>` : ''}
-                  </div>
-                  <button onclick="event.stopPropagation();__dash.deleteIdea('${i.id}')" class="text-[10px] text-zinc-700 hover:text-rose-400 opacity-0 group-hover:opacity-100">✕</button>
-                </div>
-              </div>
-            `).join('')}
-          </div>`}
-    </section>
-
-    <!-- Project cards -->
-    <section class="mb-10">
-      <h2 class="text-sm font-semibold text-zinc-400 mb-3">프로젝트</h2>
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-        ${state.projects.map(p => {
-          const pActs = state.activities.filter(a => a.project_id === p.id);
-          const pIdeas = state.ideas.filter(i => i.project_id === p.id && i.status !== 'done');
-          return `
-            <div onclick="__dash.switchTab('${p.slug}')" class="bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-lg p-4 cursor-pointer">
-              <div class="flex items-center gap-2 mb-2">
-                <span class="w-2.5 h-2.5 rounded-full" style="background:${p.color}"></span>
-                <h3 class="font-semibold flex-1 truncate">${escapeHtml(p.name)}</h3>
-                ${statusBadge(p.status)}
-              </div>
-              <p class="text-xs text-zinc-500 line-clamp-2 min-h-[2.5rem]">${escapeHtml(p.description||'')}</p>
-              <p class="text-[11px] text-zinc-600 mt-2">${escapeHtml(p.tech_stack||'')}</p>
-              <div class="flex gap-4 mt-3 text-xs text-zinc-400">
-                <span>📝 ${pActs.length}</span>
-                <span>💡 ${pIdeas.length}</span>
-              </div>
-            </div>
-          `;
-        }).join('')}
-      </div>
-    </section>
-
-    <!-- Recent activities -->
-    <section class="mb-10">
-      <h2 class="text-sm font-semibold text-zinc-400 mb-3">최근 활동</h2>
-      ${recent.length === 0 ? '<p class="text-sm text-zinc-600">아직 기록이 없습니다.</p>' : ''}
-      <div class="space-y-1.5">
-        ${recent.map(a => renderActivityRow(a, true)).join('')}
-      </div>
-    </section>
-
-    <!-- Hot ideas -->
-    <section>
-      <h2 class="text-sm font-semibold text-zinc-400 mb-3">우선 구상</h2>
-      ${hotIdeas.length === 0 ? '<p class="text-sm text-zinc-600">구상 항목 없음.</p>' : ''}
-      <div class="space-y-1.5">
-        ${hotIdeas.map(i => renderIdeaRow(i, true)).join('')}
-      </div>
-    </section>
-  `;
-}
-
-function renderProject(p) {
-  $('#page-title').innerHTML = `<span class="inline-block w-3 h-3 rounded-full mr-2" style="background:${p.color}"></span>${escapeHtml(p.name)}`;
-  $('#page-subtitle').textContent = p.description || '';
-
-  const acts = state.activities.filter(a => a.project_id === p.id);
-  const ideas = state.ideas.filter(i => i.project_id === p.id);
-  const cols = ['todo','doing','done','parked'];
-
-  $('#view').innerHTML = `
-    <div class="mb-8 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-      <div class="bg-zinc-900 border border-zinc-800 rounded p-4">
-        <div class="text-xs text-zinc-500 mb-1">로컬 경로</div>
-        <div class="font-mono text-zinc-300 text-xs break-all">${escapeHtml(p.local_path||'-')}</div>
-      </div>
-      <div class="bg-zinc-900 border border-zinc-800 rounded p-4">
-        <div class="text-xs text-zinc-500 mb-1">레포지토리</div>
-        <div class="font-mono text-zinc-300 text-xs break-all">
-          ${p.repo_url ? `<a href="${escapeHtml(p.repo_url)}" target="_blank" class="text-indigo-400 hover:underline">${escapeHtml(p.repo_url)}</a>` : '-'}
-        </div>
-      </div>
-    </div>
-
-    <!-- Ideas Kanban -->
-    <section class="mb-10">
-      <h2 class="text-sm font-semibold text-zinc-400 mb-3">구상 (${ideas.length})</h2>
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
-        ${cols.map(col => {
-          const items = ideas.filter(i => i.status === col);
-          return `
-            <div class="bg-zinc-900/50 border border-zinc-800 rounded p-3 min-h-[120px]">
-              <div class="text-xs font-semibold text-zinc-400 mb-2">${STATUS_LABEL[col]} · ${items.length}</div>
-              <div class="space-y-2">
-                ${items.map(i => `
-                  <div class="bg-zinc-900 border border-zinc-800 rounded p-2.5 text-sm">
-                    <div class="flex items-start justify-between gap-2">
-                      <div class="font-medium leading-tight flex-1">${escapeHtml(i.title)}</div>
-                      ${priorityBadge(i.priority)}
-                    </div>
-                    ${i.content ? `<div class="text-xs text-zinc-500 mt-1.5 whitespace-pre-wrap">${escapeHtml(i.content)}</div>` : ''}
-                    ${(i.tags||[]).length ? `<div class="flex flex-wrap gap-1 mt-2">${i.tags.map(t=>`<span class="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">#${escapeHtml(t)}</span>`).join('')}</div>` : ''}
-                    <div class="flex items-center justify-between gap-1 mt-2 pt-2 border-t border-zinc-800">
-                      <select onchange="__dash.updateIdeaStatus('${i.id}', this.value).then(()=>location.reload())" class="text-[10px] bg-zinc-800 border border-zinc-700 rounded px-1 py-0.5">
-                        ${cols.map(c => `<option value="${c}" ${c===i.status?'selected':''}>${STATUS_LABEL[c]}</option>`).join('')}
-                      </select>
-                      <button onclick="__dash.deleteIdea('${i.id}')" class="text-[10px] text-zinc-600 hover:text-rose-400">삭제</button>
-                    </div>
-                  </div>
-                `).join('') || '<div class="text-xs text-zinc-700">없음</div>'}
-              </div>
-            </div>
-          `;
-        }).join('')}
-      </div>
-    </section>
-
-    <!-- Activities log -->
-    <section>
-      <h2 class="text-sm font-semibold text-zinc-400 mb-3">작업 기록 (${acts.length})</h2>
-      ${acts.length === 0 ? '<p class="text-sm text-zinc-600">아직 기록이 없습니다.</p>' : ''}
-      <div class="space-y-1.5">
-        ${acts.map(a => renderActivityRow(a, false)).join('')}
-      </div>
-    </section>
-  `;
-}
-
-function renderActivityRow(a, showProject) {
-  const proj = state.projects.find(p => p.id === a.project_id);
+function repoCard(r) {
+  const stale = r.last_commit_at && (Date.now() - new Date(r.last_commit_at).getTime()) > 90 * 86400000;
   return `
-    <details class="group bg-zinc-900/40 hover:bg-zinc-900 border border-zinc-800 rounded">
-      <summary class="px-3 py-2 flex items-center gap-2 text-sm">
-        ${kindBadge(a.kind)}
-        ${sourceBadge(a.source)}
-        ${showProject ? (proj ? `<span class="text-[11px] text-zinc-500"><span class="inline-block w-1.5 h-1.5 rounded-full mr-1" style="background:${proj.color}"></span>${escapeHtml(proj.name)}</span>` : '<span class="text-[11px] text-zinc-600">· 공통</span>') : ''}
-        <span class="flex-1 truncate">${escapeHtml(a.title)}</span>
-        <span class="text-xs text-zinc-500 shrink-0" title="${fmtFull(a.occurred_at)}">${fmtTime(a.occurred_at)}</span>
-      </summary>
-      ${a.detail || a.cwd ? `
-        <div class="px-3 pb-3 pt-1 text-sm text-zinc-300 border-t border-zinc-800/60">
-          ${a.detail ? `<pre class="whitespace-pre-wrap font-sans text-zinc-300 text-[13px]">${escapeHtml(a.detail)}</pre>` : ''}
-          ${a.cwd ? `<div class="mt-2 text-[11px] text-zinc-500 font-mono">cwd: ${escapeHtml(a.cwd)}</div>` : ''}
-          <div class="mt-2 text-right">
-            <button onclick="__dash.deleteActivity('${a.id}')" class="text-[11px] text-zinc-600 hover:text-rose-400">삭제</button>
+    <div class="bg-zinc-900 border ${r.pinned ? 'border-indigo-700' : 'border-zinc-800'} hover:border-zinc-700 rounded-lg p-4 flex flex-col gap-3 ${r.hidden ? 'opacity-50' : ''}">
+      <div class="flex items-start gap-2">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <a href="${esc(r.html_url)}" target="_blank" class="font-semibold hover:text-indigo-400 truncate">${esc(r.name)}</a>
+            ${r.private ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">private</span>' : ''}
+            ${r.archived ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-900/40 text-amber-300">archived</span>' : ''}
+            ${r.fork ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-500">fork</span>' : ''}
+            ${r.language ? `<span class="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">${esc(r.language)}</span>` : ''}
           </div>
+          <p class="text-xs text-zinc-500 line-clamp-2 mt-1 min-h-[2rem]">${esc(r.description || '')}</p>
         </div>
-      ` : `<div class="px-3 pb-2 text-right"><button onclick="__dash.deleteActivity('${a.id}')" class="text-[11px] text-zinc-600 hover:text-rose-400">삭제</button></div>`}
-    </details>
-  `;
-}
+        <div class="flex flex-col gap-1 items-end shrink-0">
+          <button onclick="__d.togglePin(${r.id})" title="고정 토글" class="text-xs ${r.pinned ? 'text-indigo-400' : 'text-zinc-600 hover:text-zinc-300'}">${r.pinned ? '★' : '☆'}</button>
+          <button onclick="__d.toggleHide(${r.id})" title="숨김 토글" class="text-xs ${r.hidden ? 'text-zinc-500' : 'text-zinc-600 hover:text-zinc-300'}">${r.hidden ? '◐' : '○'}</button>
+        </div>
+      </div>
 
-function renderIdeaRow(i, showProject) {
-  const proj = state.projects.find(p => p.id === i.project_id);
-  return `
-    <div class="px-3 py-2 bg-zinc-900/40 border border-zinc-800 rounded flex items-center gap-2 text-sm">
-      ${priorityBadge(i.priority)}
-      ${statusBadge(i.status)}
-      ${showProject ? (proj ? `<span class="text-[11px] text-zinc-500"><span class="inline-block w-1.5 h-1.5 rounded-full mr-1" style="background:${proj.color}"></span>${escapeHtml(proj.name)}</span>` : '') : ''}
-      <span class="flex-1 truncate">${escapeHtml(i.title)}</span>
+      <div class="text-xs text-zinc-400 border-t border-zinc-800 pt-3 space-y-1.5">
+        ${r.last_commit_message ? `
+          <div class="flex items-start gap-2">
+            <span class="text-zinc-600 shrink-0">⌖</span>
+            <div class="flex-1 min-w-0">
+              <div class="text-zinc-300 truncate" title="${esc(r.last_commit_message)}">${esc(r.last_commit_message)}</div>
+              <div class="text-[11px] text-zinc-500 mt-0.5">
+                ${esc(r.last_commit_author || '')} · <span title="${fmtFull(r.last_commit_at)}" class="${stale ? 'text-amber-400' : ''}">${fmtTime(r.last_commit_at)}</span>
+              </div>
+            </div>
+          </div>
+        ` : '<div class="text-zinc-600 italic">커밋 없음</div>'}
+
+        <div class="flex items-center gap-3 text-[11px] pt-1">
+          <a href="${esc(r.html_url)}/issues" target="_blank" class="text-zinc-400 hover:text-indigo-400">⊙ 이슈 ${r.open_issues_count - r.open_pr_count}</a>
+          <a href="${esc(r.html_url)}/pulls" target="_blank" class="text-zinc-400 hover:text-indigo-400">⇄ PR ${r.open_pr_count}</a>
+          <span class="text-zinc-600">·</span>
+          <span class="text-zinc-500">${esc(r.default_branch || '')}</span>
+        </div>
+      </div>
+
+      ${r.netlify_url ? `
+        <div class="text-xs border-t border-zinc-800 pt-3">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-zinc-500">Netlify</span>
+            ${netlifyBadge(r.netlify_state)}
+            <a href="${esc(r.netlify_url)}" target="_blank" class="text-indigo-400 hover:underline truncate flex-1 min-w-0">${esc(r.netlify_url.replace(/^https?:\/\//, ''))}</a>
+          </div>
+          ${r.netlify_deploy_at ? `<div class="text-[11px] text-zinc-600 mt-0.5">배포 ${fmtTime(r.netlify_deploy_at)}</div>` : ''}
+        </div>
+      ` : ''}
+
+      ${r.note ? `
+        <div class="text-xs border-t border-zinc-800 pt-3 whitespace-pre-wrap text-zinc-400">${esc(r.note)}</div>
+      ` : ''}
+
+      <div class="flex justify-end mt-auto">
+        <button onclick="__d.openNote(${r.id})" class="text-[11px] text-zinc-600 hover:text-zinc-300">메모 ${r.note ? '✎' : '+'}</button>
+      </div>
     </div>
   `;
 }
 
-// ---- Forms ----
-function fillProjectSelect(sel) {
-  const el = $(sel);
-  el.innerHTML = `<option value="">(공통 / 메인)</option>` + state.projects.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
-  // preselect current tab if a project
-  const cur = state.projects.find(p => p.slug === state.currentTab);
-  if (cur) el.value = cur.id;
+function render() {
+  const visible = state.repos.filter(r => state.showArchived || (!r.archived && !r.hidden));
+  if (state.repos.length === 0) {
+    $('#view').innerHTML = `
+      <div class="text-center py-20">
+        <p class="text-zinc-500 mb-4">아직 동기화된 레포가 없습니다.</p>
+        <p class="text-zinc-600 text-sm mb-6">우상단 🔑 토큰을 먼저 입력한 뒤 ↻ 동기화를 누르세요.</p>
+      </div>
+    `;
+    return;
+  }
+  $('#view').innerHTML = `
+    <div class="text-xs text-zinc-500 mb-4">전체 ${state.repos.length}개 · 표시 ${visible.length}개${state.repos.find(r=>r.synced_at) ? ` · 마지막 동기화 ${fmtTime(state.repos[0]?.synced_at)}` : ''}</div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      ${visible.map(repoCard).join('')}
+    </div>
+  `;
 }
 
-function openModal(id) {
-  $('#'+id).classList.remove('hidden');
+// ---- Modal: tokens ----
+function openTokens() {
+  $('#tk-gh').value = state.tokens.github_pat || '';
+  $('#tk-nl').value = state.tokens.netlify_pat || '';
+  $('#modal-tokens').classList.remove('hidden');
 }
-function closeModal(id) {
-  $('#'+id).classList.add('hidden');
-}
-
-$('#add-activity-btn').addEventListener('click', () => {
-  fillProjectSelect('#act-project');
-  $('#act-occurred').value = localDatetimeNow();
-  $('#act-title').value = '';
-  $('#act-detail').value = '';
-  $('#act-kind').value = 'work';
-  openModal('modal-activity');
-});
-
-$('#add-idea-btn').addEventListener('click', () => {
-  fillProjectSelect('#idea-project');
-  $('#idea-title').value = '';
-  $('#idea-content').value = '';
-  $('#idea-tags').value = '';
-  $('#idea-status').value = 'todo';
-  $('#idea-priority').value = 'med';
-  openModal('modal-idea');
-});
-
-$$('.modal-close').forEach(b => b.addEventListener('click', e => {
-  e.target.closest('[id^=modal-]').classList.add('hidden');
-}));
-
-$('#form-activity').addEventListener('submit', async e => {
+$('#tokens-btn').addEventListener('click', openTokens);
+$('#tokens-cancel').addEventListener('click', () => $('#modal-tokens').classList.add('hidden'));
+$('#form-tokens').addEventListener('submit', async e => {
   e.preventDefault();
-  const occurred = $('#act-occurred').value;
-  const ok = await insertActivity({
-    project_id: $('#act-project').value || null,
-    kind: $('#act-kind').value,
-    title: $('#act-title').value.trim(),
-    detail: $('#act-detail').value.trim() || null,
-    occurred_at: occurred ? new Date(occurred).toISOString() : new Date().toISOString(),
-    source: 'manual',
-  });
-  if (ok) { closeModal('modal-activity'); await loadAll(); render(); }
-});
-
-$('#form-idea').addEventListener('submit', async e => {
-  e.preventDefault();
-  const tags = $('#idea-tags').value.split(',').map(t => t.trim()).filter(Boolean);
-  const ok = await insertIdea({
-    project_id: $('#idea-project').value || null,
-    title: $('#idea-title').value.trim(),
-    content: $('#idea-content').value.trim() || null,
-    status: $('#idea-status').value,
-    priority: $('#idea-priority').value,
-    tags,
-  });
-  if (ok) { closeModal('modal-idea'); await loadAll(); render(); }
-});
-
-$('#refresh-btn').addEventListener('click', async () => { await loadAll(); renderTabs(); render(); });
-
-// inbox 입력 / 드래그 — 메인 시트가 render될 때마다 다시 바인딩
-document.addEventListener('click', async e => {
-  if (e.target && e.target.id === 'quick-note-save') {
-    const ta = document.getElementById('quick-note');
-    if (!ta) return;
-    const text = ta.value;
-    if (!text.trim()) return;
-    const ok = await quickAddInboxNote(text);
-    if (ok) { ta.value = ''; await loadAll(); render(); }
+  const gh = $('#tk-gh').value.trim();
+  const nl = $('#tk-nl').value.trim();
+  const ok = await saveTokens(gh, nl);
+  if (ok) {
+    $('#modal-tokens').classList.add('hidden');
+    setStatus('토큰 저장됨');
   }
 });
-document.addEventListener('keydown', async e => {
-  if (e.target && e.target.id === 'quick-note' && (e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-    e.preventDefault();
-    const text = e.target.value;
-    if (!text.trim()) return;
-    const ok = await quickAddInboxNote(text);
-    if (ok) { e.target.value = ''; await loadAll(); render(); }
-  }
+
+// ---- Modal: note ----
+$('#note-cancel').addEventListener('click', () => $('#modal-note').classList.add('hidden'));
+$('#form-note').addEventListener('submit', async e => {
+  e.preventDefault();
+  if (!state.noteRepoId) return;
+  await saveNote(state.noteRepoId, $('#note-text').value.trim());
+  $('#modal-note').classList.add('hidden');
 });
-document.addEventListener('dragstart', e => {
-  const chip = e.target.closest && e.target.closest('.inbox-chip');
-  if (!chip) return;
-  e.dataTransfer.setData('application/x-idea-id', chip.dataset.id);
-  e.dataTransfer.effectAllowed = 'move';
-  chip.classList.add('opacity-50');
-});
-document.addEventListener('dragend', e => {
-  const chip = e.target.closest && e.target.closest('.inbox-chip');
-  if (chip) chip.classList.remove('opacity-50');
+
+$('#sync-btn').addEventListener('click', sync);
+$('#show-archived').addEventListener('change', e => {
+  state.showArchived = e.target.checked;
+  render();
 });
 
 // ---- Boot ----
 (async () => {
-  await loadAll();
-  renderTabs();
+  await loadTokens();
+  await loadRepos();
   render();
-  // 30초마다 자동 새로고침 (Claude Stop hook 등 외부 기록 반영)
-  // 사이드바 탭도 새로 그려야 함 — 프로젝트 이름이 DB에서 바뀐 경우 반영
-  setInterval(async () => { await loadAll(); renderTabs(); render(); }, 30000);
+  if (!state.tokens.github_pat) {
+    setStatus('GitHub 토큰을 먼저 설정하세요');
+  } else if (state.repos.length === 0) {
+    setStatus('동기화 버튼을 눌러 시작하세요');
+  } else {
+    setStatus(`${state.repos.length}개 레포 로드됨`);
+  }
 })();
 </script>
 </body>
